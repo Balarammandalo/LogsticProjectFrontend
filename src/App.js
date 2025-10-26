@@ -17,6 +17,7 @@ import AdminDashboardNew from './components/admin/AdminDashboardNew';
 import DriverDashboard from './components/driver/DriverDashboard';
 import DriverDashboardNew from './components/driver/DriverDashboardNew';
 import UserDashboard from './components/user/UserDashboard';
+import UserDashboardNew from './components/user/UserDashboardNew';
 
 // Admin Components
 import AddVehicle from './components/admin/AddVehicle';
@@ -106,7 +107,9 @@ function App() {
               </Route>
 
               <Route path="/user" element={<PrivateRoute allowedRoles={['customer']} /> }>
-                <Route index element={<UserDashboard />} />
+                <Route index element={<UserDashboardNew />} />
+                <Route path="dashboard" element={<UserDashboardNew />} />
+                <Route path="old" element={<UserDashboard />} />
                 <Route path="book-logistics" element={<LogisticsBooking />} />
                 <Route path="orders/:orderId" element={<OrderDetails />} />
                 <Route path="deliveries/:id/track" element={<TrackDelivery />} />

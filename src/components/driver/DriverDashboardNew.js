@@ -44,6 +44,8 @@ import {
   Add,
   Warning,
 } from '@mui/icons-material';
+import BrandedHeader from '../common/BrandedHeader';
+import { BRAND } from '../../constants/branding';
 
 const VEHICLE_TYPES = [
   { value: 'bike', label: 'Bike', capacity: 200 },
@@ -297,47 +299,36 @@ const DriverDashboardNew = () => {
   ];
 
   return (
-    <Box sx={{ minHeight: '100vh', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
-      {/* Header */}
-      <Paper elevation={3} sx={{ borderRadius: 0, background: 'rgba(255, 255, 255, 0.95)' }}>
-        <Container maxWidth="xl">
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', py: 2 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <Avatar sx={{ bgcolor: '#667eea', width: 50, height: 50 }}>
-                {user?.name?.charAt(0) || 'D'}
-              </Avatar>
-              <Box>
-                <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                  {user?.name || 'Driver'}
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  Driver Dashboard
-                </Typography>
-              </Box>
-            </Box>
-
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={isAvailable}
-                    onChange={handleAvailabilityToggle}
-                    color="success"
-                  />
-                }
-                label={
-                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                    {isAvailable ? '🟢 Available' : '🔴 Offline'}
-                  </Typography>
-                }
+    <Box sx={{ minHeight: '100vh', background: BRAND.backgrounds.map, backgroundColor: '#f5f7fa' }}>
+      {/* Branded Header */}
+      <BrandedHeader
+        user={user}
+        onLogout={logout}
+        role="driver"
+        additionalContent={
+          <FormControlLabel
+            control={
+              <Switch
+                checked={isAvailable}
+                onChange={handleAvailabilityToggle}
+                sx={{
+                  '& .MuiSwitch-switchBase.Mui-checked': {
+                    color: '#4caf50',
+                  },
+                  '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+                    backgroundColor: '#4caf50',
+                  },
+                }}
               />
-              <Button variant="outlined" onClick={logout}>
-                Logout
-              </Button>
-            </Box>
-          </Box>
-        </Container>
-      </Paper>
+            }
+            label={
+              <Typography variant="body2" sx={{ fontWeight: 600, color: 'white' }}>
+                {isAvailable ? '🟢 Available' : '🔴 Offline'}
+              </Typography>
+            }
+          />
+        }
+      />
 
       <Container maxWidth="xl" sx={{ mt: 3, pb: 4 }}>
         {/* Vehicle Info/Warning */}
