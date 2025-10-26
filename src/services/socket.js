@@ -92,6 +92,25 @@ class SocketService {
     }
   }
 
+  // Generic event methods
+  on(event, callback) {
+    if (this.socket) {
+      this.socket.on(event, callback);
+    }
+  }
+
+  emit(event, data) {
+    if (this.socket && this.isConnected) {
+      this.socket.emit(event, data);
+    }
+  }
+
+  off(event, callback) {
+    if (this.socket) {
+      this.socket.off(event, callback);
+    }
+  }
+
   // Event listeners
   onLocationUpdate(callback) {
     if (this.socket) {

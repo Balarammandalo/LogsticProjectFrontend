@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../services/AuthContext';
+import BookingMap from '../map/BookingMap';
+import { searchLocationsDebounced, calculateDistance } from '../../services/locationService';
 import {
   Container,
   Paper,
@@ -95,10 +97,13 @@ const LogisticsBooking = () => {
   // Location states
   const [pickupLocation, setPickupLocation] = useState('');
   const [dropLocation, setDropLocation] = useState('');
+  const [pickupCoords, setPickupCoords] = useState(null);
+  const [dropCoords, setDropCoords] = useState(null);
   const [pickupSuggestions, setPickupSuggestions] = useState([]);
   const [dropSuggestions, setDropSuggestions] = useState([]);
   const [showPickupSuggestions, setShowPickupSuggestions] = useState(false);
   const [showDropSuggestions, setShowDropSuggestions] = useState(false);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   
   // Package details
   const [packageWeight, setPackageWeight] = useState('');
@@ -158,40 +163,50 @@ const LogisticsBooking = () => {
     'Vastrapur, Ahmedabad',
   ];
 
-  // Handle location search
+  // Handle location search with real-time API
   const handlePickupSearch = (value) => {
     setPickupLocation(value);
-    if (value.length > 2) {
-      const suggestions = INDIAN_LOCATIONS.filter(loc =>
-        loc.toLowerCase().includes(value.toLowerCase())
-      );
-      setPickupSuggestions(suggestions);
+    
+    if (value.length >= 2) {
+      setLoadingSuggestions(true);
       setShowPickupSuggestions(true);
+      
+      searchLocationsDebounced(value, (results) => {
+        setPickupSuggestions(results);
+        setLoadingSuggestions(false);
+      });
     } else {
       setShowPickupSuggestions(false);
+      setPickupSuggestions([]);
     }
   };
 
   const handleDropSearch = (value) => {
     setDropLocation(value);
-    if (value.length > 2) {
-      const suggestions = INDIAN_LOCATIONS.filter(loc =>
-        loc.toLowerCase().includes(value.toLowerCase())
-      );
-      setDropSuggestions(suggestions);
+    
+    if (value.length >= 2) {
+      setLoadingSuggestions(true);
       setShowDropSuggestions(true);
+      
+      searchLocationsDebounced(value, (results) => {
+        setDropSuggestions(results);
+        setLoadingSuggestions(false);
+      });
     } else {
       setShowDropSuggestions(false);
+      setDropSuggestions([]);
     }
   };
 
   const selectPickupLocation = (location) => {
-    setPickupLocation(location);
+    setPickupLocation(location.fullAddress || location.displayName);
+    setPickupCoords({ lat: location.lat, lon: location.lon });
     setShowPickupSuggestions(false);
   };
 
   const selectDropLocation = (location) => {
-    setDropLocation(location);
+    setDropLocation(location.fullAddress || location.displayName);
+    setDropCoords({ lat: location.lat, lon: location.lon });
     setShowDropSuggestions(false);
   };
 
@@ -208,15 +223,15 @@ const LogisticsBooking = () => {
 
   // Calculate estimated distance and cost
   useEffect(() => {
-    if (pickupLocation && dropLocation && selectedVehicle) {
-      // Simulate distance calculation (in real app, use Google Distance Matrix API)
-      const distance = Math.floor(Math.random() * 30) + 5; // 5-35 km
+    if (pickupCoords && dropCoords && selectedVehicle) {
+      // Calculate real distance using coordinates
+      const distance = calculateDistance(pickupCoords, dropCoords);
       setEstimatedDistance(distance);
       
       const cost = selectedVehicle.basePrice + (distance * selectedVehicle.pricePerKm);
       setEstimatedCost(cost);
     }
-  }, [pickupLocation, dropLocation, selectedVehicle]);
+  }, [pickupCoords, dropCoords, selectedVehicle]);
 
   // Handle next step
   const handleNext = () => {
@@ -427,7 +442,7 @@ const LogisticsBooking = () => {
                       }}
                       sx={{ mb: 2 }}
                     />
-                    {showPickupSuggestions && pickupSuggestions.length > 0 && (
+                    {showPickupSuggestions && (
                       <Paper
                         sx={{
                           position: 'absolute',
@@ -435,27 +450,46 @@ const LogisticsBooking = () => {
                           left: 0,
                           right: 0,
                           zIndex: 1000,
-                          maxHeight: 200,
+                          maxHeight: 300,
                           overflow: 'auto',
                           boxShadow: 3,
                         }}
                       >
-                        {pickupSuggestions.map((suggestion, index) => (
-                          <Box
-                            key={index}
-                            onClick={() => selectPickupLocation(suggestion)}
-                            sx={{
-                              p: 2,
-                              cursor: 'pointer',
-                              '&:hover': {
-                                backgroundColor: 'rgba(102, 126, 234, 0.1)',
-                              },
-                              borderBottom: '1px solid #eee',
-                            }}
-                          >
-                            <Typography variant="body2">{suggestion}</Typography>
+                        {loadingSuggestions ? (
+                          <Box sx={{ p: 2, textAlign: 'center' }}>
+                            <Typography variant="body2" color="text.secondary">
+                              Searching locations...
+                            </Typography>
                           </Box>
-                        ))}
+                        ) : pickupSuggestions.length > 0 ? (
+                          pickupSuggestions.map((suggestion, index) => (
+                            <Box
+                              key={index}
+                              onClick={() => selectPickupLocation(suggestion)}
+                              sx={{
+                                p: 2,
+                                cursor: 'pointer',
+                                '&:hover': {
+                                  backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                                },
+                                borderBottom: '1px solid #eee',
+                              }}
+                            >
+                              <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                                📍 {suggestion.city || suggestion.name}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                {suggestion.state && `${suggestion.state}, `}{suggestion.country}
+                              </Typography>
+                            </Box>
+                          ))
+                        ) : (
+                          <Box sx={{ p: 2, textAlign: 'center' }}>
+                            <Typography variant="body2" color="text.secondary">
+                              No locations found
+                            </Typography>
+                          </Box>
+                        )}
                       </Paper>
                     )}
                   </Box>
@@ -478,7 +512,7 @@ const LogisticsBooking = () => {
                       }}
                       sx={{ mb: 2 }}
                     />
-                    {showDropSuggestions && dropSuggestions.length > 0 && (
+                    {showDropSuggestions && (
                       <Paper
                         sx={{
                           position: 'absolute',
@@ -486,27 +520,46 @@ const LogisticsBooking = () => {
                           left: 0,
                           right: 0,
                           zIndex: 1000,
-                          maxHeight: 200,
+                          maxHeight: 300,
                           overflow: 'auto',
                           boxShadow: 3,
                         }}
                       >
-                        {dropSuggestions.map((suggestion, index) => (
-                          <Box
-                            key={index}
-                            onClick={() => selectDropLocation(suggestion)}
-                            sx={{
-                              p: 2,
-                              cursor: 'pointer',
-                              '&:hover': {
-                                backgroundColor: 'rgba(102, 126, 234, 0.1)',
-                              },
-                              borderBottom: '1px solid #eee',
-                            }}
-                          >
-                            <Typography variant="body2">{suggestion}</Typography>
+                        {loadingSuggestions ? (
+                          <Box sx={{ p: 2, textAlign: 'center' }}>
+                            <Typography variant="body2" color="text.secondary">
+                              Searching locations...
+                            </Typography>
                           </Box>
-                        ))}
+                        ) : dropSuggestions.length > 0 ? (
+                          dropSuggestions.map((suggestion, index) => (
+                            <Box
+                              key={index}
+                              onClick={() => selectDropLocation(suggestion)}
+                              sx={{
+                                p: 2,
+                                cursor: 'pointer',
+                                '&:hover': {
+                                  backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                                },
+                                borderBottom: '1px solid #eee',
+                              }}
+                            >
+                              <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                                📍 {suggestion.city || suggestion.name}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                {suggestion.state && `${suggestion.state}, `}{suggestion.country}
+                              </Typography>
+                            </Box>
+                          ))
+                        ) : (
+                          <Box sx={{ p: 2, textAlign: 'center' }}>
+                            <Typography variant="body2" color="text.secondary">
+                              No locations found
+                            </Typography>
+                          </Box>
+                        )}
                       </Paper>
                     )}
                   </Box>
@@ -533,6 +586,29 @@ const LogisticsBooking = () => {
                     placeholder="e.g., Electronics, Furniture, Documents"
                   />
                 </Grid>
+
+                {/* Map Display */}
+                {(pickupLocation || dropLocation) && (
+                  <Grid item xs={12}>
+                    <Box sx={{ mt: 2 }}>
+                      <Typography variant="body2" sx={{ mb: 2, fontWeight: 600, color: '#667eea' }}>
+                        🗺️ Route Preview
+                      </Typography>
+                      <BookingMap 
+                        pickupLocation={pickupLocation} 
+                        dropLocation={dropLocation}
+                        height={350}
+                      />
+                      {pickupLocation && dropLocation && (
+                        <Alert severity="info" sx={{ mt: 2 }}>
+                          <Typography variant="body2">
+                            <strong>Route:</strong> {pickupLocation} → {dropLocation}
+                          </Typography>
+                        </Alert>
+                      )}
+                    </Box>
+                  </Grid>
+                )}
               </Grid>
             </Box>
           )}

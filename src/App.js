@@ -13,6 +13,7 @@ import Register from './components/auth/Register';
 
 // Dashboard Components
 import AdminDashboard from './components/admin/AdminDashboard';
+import AdminDashboardNew from './components/admin/AdminDashboardNew';
 import DriverDashboard from './components/driver/DriverDashboard';
 import UserDashboard from './components/user/UserDashboard';
 
@@ -20,6 +21,7 @@ import UserDashboard from './components/user/UserDashboard';
 import AddVehicle from './components/admin/AddVehicle';
 import AssignDriver from './components/admin/AssignDriver';
 import PlanRoutes from './components/admin/PlanRoutes';
+import BookingManagement from './components/admin/BookingManagement';
 
 // Driver Components
 import AssignedDeliveries from './components/driver/AssignedDeliveries';
@@ -30,6 +32,7 @@ import AllDeliveries from './components/driver/AllDeliveries';
 // User Components
 import TrackDelivery from './components/user/TrackDelivery';
 import LogisticsBooking from './components/user/LogisticsBooking';
+import OrderDetails from './components/user/OrderDetails';
 
 // Map Components
 import LiveMap from './components/map/LiveMap';
@@ -82,7 +85,9 @@ function App() {
 
               {/* Protected Routes */}
               <Route path="/admin" element={<PrivateRoute allowedRoles={['admin']} /> }>
-                <Route index element={<AdminDashboard />} />
+                <Route index element={<AdminDashboardNew />} />
+                <Route path="old" element={<AdminDashboard />} />
+                <Route path="bookings" element={<BookingManagement />} />
                 <Route path="vehicles/add" element={<AddVehicle />} />
                 <Route path="drivers/assign" element={<AssignDriver />} />
                 <Route path="routes/plan" element={<PlanRoutes />} />
@@ -100,6 +105,7 @@ function App() {
               <Route path="/user" element={<PrivateRoute allowedRoles={['customer']} /> }>
                 <Route index element={<UserDashboard />} />
                 <Route path="book-logistics" element={<LogisticsBooking />} />
+                <Route path="orders/:orderId" element={<OrderDetails />} />
                 <Route path="deliveries/:id/track" element={<TrackDelivery />} />
                 <Route path="map/route" element={<RouteMap />} />
               </Route>

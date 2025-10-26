@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../services/AuthContext';
 import { deliveryAPI } from '../../services/api';
 import socketService from '../../services/socket';
+import OrderTrackingMap from '../map/OrderTrackingMap';
 import {
   Container,
   Grid,
@@ -139,6 +140,8 @@ const UserDashboard = () => {
   const [editingProfile, setEditingProfile] = useState(false);
   const [editedProfile, setEditedProfile] = useState({...customerProfile});
   const [profilePicturePreview, setProfilePicturePreview] = useState(customerProfile.profilePicture);
+  const [trackingMapOpen, setTrackingMapOpen] = useState(false);
+  const [selectedOrderForTracking, setSelectedOrderForTracking] = useState(null);
 
   useEffect(() => {
     loadAddresses();
@@ -208,18 +211,40 @@ const UserDashboard = () => {
   };
 
   const connectSocket = () => {
-    socketService.connect(user);
+    try {
+      // Connect to socket if user exists
+      if (user) {
+        socketService.connect(user);
 
-    // Listen for delivery status updates
-    socketService.onDeliveryStatusUpdate((data) => {
-      if (data.deliveryId) {
-        // Check if this delivery belongs to the user
-        const userDelivery = deliveries.find(d => d._id === data.deliveryId);
-        if (userDelivery) {
-          loadDeliveries(); // Refresh deliveries
-        }
+        // Wait a bit for connection to establish
+        setTimeout(() => {
+          // Listen for delivery status updates
+          if (socketService.on) {
+            socketService.on('deliveryStatusUpdate', (data) => {
+              console.log('📦 Delivery status update received:', data);
+              loadDeliveries();
+            });
+
+            // Listen for booking updates from admin
+            socketService.on('bookingUpdated', (data) => {
+              console.log('📦 Booking updated by admin:', data);
+              if (data.customerEmail === user?.email) {
+                loadDeliveries();
+              }
+            });
+
+            // Listen for new bookings
+            socketService.on('newBooking', (data) => {
+              console.log('📦 New booking created:', data);
+              loadDeliveries();
+            });
+          }
+        }, 500);
       }
-    });
+    } catch (error) {
+      console.error('Socket connection error:', error);
+      // Continue without socket - app will still work with polling
+    }
   };
 
   const getFilteredDeliveries = () => {
@@ -887,12 +912,12 @@ const UserDashboard = () => {
                     />
                   </TableCell>
                   <TableCell>
-                    {(delivery.status === 'on-route' || delivery.status === 'picked-up') && (
+                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                       <Button
                         size="small"
                         variant="contained"
                         component={Link}
-                        to={`/user/map/route?delivery=${delivery._id}`}
+                        to={`/user/orders/${delivery._id}`}
                         startIcon={<Visibility />}
                         sx={{
                           textTransform: 'none',
@@ -904,9 +929,30 @@ const UserDashboard = () => {
                           },
                         }}
                       >
-                        Track
+                        Details
                       </Button>
-                    )}
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        startIcon={<Map />}
+                        onClick={() => {
+                          setSelectedOrderForTracking(delivery);
+                          setTrackingMapOpen(true);
+                        }}
+                        sx={{
+                          textTransform: 'none',
+                          borderRadius: 1.5,
+                          borderColor: '#667eea',
+                          color: '#667eea',
+                          '&:hover': {
+                            borderColor: '#764ba2',
+                            background: 'rgba(102, 126, 234, 0.05)',
+                          },
+                        }}
+                      >
+                        View Map
+                      </Button>
+                    </Box>
                   </TableCell>
                 </TableRow>
               ))}
@@ -1365,6 +1411,18 @@ const UserDashboard = () => {
             )}
           </DialogActions>
         </Dialog>
+
+        {/* Order Tracking Map Dialog */}
+        {selectedOrderForTracking && (
+          <OrderTrackingMap
+            order={selectedOrderForTracking}
+            open={trackingMapOpen}
+            onClose={() => {
+              setTrackingMapOpen(false);
+              setSelectedOrderForTracking(null);
+            }}
+          />
+        )}
       </Container>
     </Box>
   );
