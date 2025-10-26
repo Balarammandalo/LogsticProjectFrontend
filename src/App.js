@@ -3,7 +3,9 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { AuthProvider } from './services/AuthContext';
+import { ThemeProvider as CustomThemeProvider } from './context/ThemeContext';
 import PrivateRoute from './components/auth/PrivateRoute';
+import './styles/theme.css';
 
 // Auth Components
 import Login from './components/auth/Login';
@@ -32,6 +34,9 @@ import TrackDelivery from './components/user/TrackDelivery';
 import LiveMap from './components/map/LiveMap';
 import RouteMap from './components/map/RouteMap';
 
+// Home Dashboard
+import HomeDashboard from './components/home/HomeDashboard';
+
 const theme = createTheme({
   palette: {
     primary: {
@@ -45,15 +50,18 @@ const theme = createTheme({
 
 function App() {
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <AuthProvider>
-        <Router>
-          <div className="App">
-            <Routes>
-              {/* Public Routes */}
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
+    <CustomThemeProvider>
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <AuthProvider>
+          <Router>
+            <div className="App">
+              <Routes>
+                {/* Public Routes */}
+                <Route path="/" element={<HomeDashboard />} />
+                <Route path="/home" element={<HomeDashboard />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/register" element={<Register />} />
 
               {/* Protected Routes */}
               <Route path="/admin" element={<PrivateRoute allowedRoles={['admin']} /> }>
@@ -79,13 +87,13 @@ function App() {
               </Route>
 
               {/* Default redirect */}
-              <Route path="/" element={<Navigate to="/login" replace />} />
-              <Route path="*" element={<Navigate to="/login" replace />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </div>
         </Router>
       </AuthProvider>
     </ThemeProvider>
+    </CustomThemeProvider>
   );
 }
 
