@@ -15,6 +15,7 @@ import Register from './components/auth/Register';
 import AdminDashboard from './components/admin/AdminDashboard';
 import AdminDashboardNew from './components/admin/AdminDashboardNew';
 import DriverDashboard from './components/driver/DriverDashboard';
+import DriverDashboardNew from './components/driver/DriverDashboardNew';
 import UserDashboard from './components/user/UserDashboard';
 
 // Admin Components
@@ -95,11 +96,13 @@ function App() {
               </Route>
 
               <Route path="/driver" element={<PrivateRoute allowedRoles={['driver']} /> }>
-                <Route index element={<DriverDashboard />} />
-                <Route path="dashboard" element={<DriverDashboard />} />
+                <Route index element={<DriverDashboardNew />} />
+                <Route path="dashboard" element={<DriverDashboardNew />} />
+                <Route path="old" element={<DriverDashboard />} />
                 <Route path="deliveries" element={<AllDeliveries />} />
-                <Route path="deliveries/:id/complete" element={<MarkCompleted />} />
-                <Route path="map/live" element={<LiveTrackingMap />} />
+                <Route path="assigned" element={<AssignedDeliveries />} />
+                <Route path="completed" element={<MarkCompleted />} />
+                <Route path="tracking" element={<LiveTrackingMap />} />
               </Route>
 
               <Route path="/user" element={<PrivateRoute allowedRoles={['customer']} /> }>
