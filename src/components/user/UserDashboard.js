@@ -133,17 +133,12 @@ const UserDashboard = () => {
       name: user.name || 'Customer Name',
       email: user.email || 'customer@example.com',
       phone: user.phone || '+91 9876543210',
+      profilePicture: null,
     };
   });
   const [editingProfile, setEditingProfile] = useState(false);
   const [editedProfile, setEditedProfile] = useState({...customerProfile});
-  const [quickBuyDialogOpen, setQuickBuyDialogOpen] = useState(false);
-  const [productLink, setProductLink] = useState('');
-  const [productDetails, setProductDetails] = useState(null);
-  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState('card');
-  const [cardDetails, setCardDetails] = useState({ number: '', cvv: '', expiry: '' });
-  const [manualPrice, setManualPrice] = useState('');
+  const [profilePicturePreview, setProfilePicturePreview] = useState(customerProfile.profilePicture);
 
   useEffect(() => {
     loadAddresses();
@@ -312,9 +307,39 @@ const UserDashboard = () => {
 
   const handleSaveProfile = () => {
     setCustomerProfile(editedProfile);
+    setProfilePicturePreview(editedProfile.profilePicture);
     localStorage.setItem('customerProfile', JSON.stringify(editedProfile));
     setEditingProfile(false);
     alert('✅ Profile updated successfully!');
+  };
+
+  const handleProfilePictureChange = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      // Check file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('File size should be less than 5MB');
+        return;
+      }
+      
+      // Check file type
+      if (!file.type.startsWith('image/')) {
+        alert('Please select an image file');
+        return;
+      }
+      
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setEditedProfile({ ...editedProfile, profilePicture: reader.result });
+        setProfilePicturePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveProfilePicture = () => {
+    setEditedProfile({ ...editedProfile, profilePicture: null });
+    setProfilePicturePreview(null);
   };
 
   const handleCancelEditProfile = () => {
@@ -360,182 +385,6 @@ const UserDashboard = () => {
     }
   };
 
-  const handleQuickBuyOpen = () => {
-    setQuickBuyDialogOpen(true);
-    setProductLink('');
-    setProductDetails(null);
-  };
-
-  const handleProductLinkSubmit = () => {
-    if (!productLink.trim()) {
-      alert('Please enter a product link');
-      return;
-    }
-
-    // Extract product info from link
-    const productName = extractProductName(productLink);
-    const extractedPrice = extractPriceFromUrl(productLink);
-    const estimatedPrice = extractedPrice || estimatePriceByCategory(productName);
-    
-    setProductDetails({
-      name: productName,
-      price: estimatedPrice,
-      link: productLink,
-      platform: detectPlatform(productLink),
-    });
-    setManualPrice(estimatedPrice.toString());
-  };
-
-  const extractProductName = (url) => {
-    try {
-      // Extract product name from URL
-      const urlParts = url.split('/');
-      const productPart = urlParts.find(part => part.includes('-') || part.length > 10);
-      return productPart ? productPart.replace(/-/g, ' ').substring(0, 50) : 'Product from link';
-    } catch {
-      return 'Product from link';
-    }
-  };
-
-  const extractPriceFromUrl = (url) => {
-    try {
-      // Try to extract price from URL patterns
-      // Amazon: /dp/B08XYZ/ref=sr_1_1?price=2999
-      // Flipkart: ?pid=MOBXYZ&price=15999
-      const priceMatch = url.match(/[?&]price=(\d+)/i);
-      if (priceMatch) {
-        return parseInt(priceMatch[1]);
-      }
-      
-      // Some URLs have price in path like /product-name-2999-rupees
-      const pathPriceMatch = url.match(/[-_](\d{3,5})[-_]/);
-      if (pathPriceMatch) {
-        const price = parseInt(pathPriceMatch[1]);
-        if (price >= 100 && price <= 99999) {
-          return price;
-        }
-      }
-      
-      return null;
-    } catch {
-      return null;
-    }
-  };
-
-  const estimatePriceByCategory = (productName) => {
-    const name = productName.toLowerCase();
-    
-    // Electronics
-    if (name.includes('laptop') || name.includes('macbook')) return Math.floor(Math.random() * 30000) + 35000;
-    if (name.includes('phone') || name.includes('mobile') || name.includes('iphone') || name.includes('samsung')) return Math.floor(Math.random() * 20000) + 15000;
-    if (name.includes('tablet') || name.includes('ipad')) return Math.floor(Math.random() * 15000) + 20000;
-    if (name.includes('watch') || name.includes('smartwatch')) return Math.floor(Math.random() * 8000) + 5000;
-    if (name.includes('earbuds') || name.includes('airpods') || name.includes('headphone')) return Math.floor(Math.random() * 3000) + 2000;
-    if (name.includes('speaker') || name.includes('bluetooth')) return Math.floor(Math.random() * 2000) + 1500;
-    if (name.includes('tv') || name.includes('television')) return Math.floor(Math.random() * 20000) + 25000;
-    if (name.includes('camera')) return Math.floor(Math.random() * 25000) + 30000;
-    
-    // Clothing & Fashion
-    if (name.includes('shirt') || name.includes('tshirt') || name.includes('t shirt')) return Math.floor(Math.random() * 500) + 500;
-    if (name.includes('jeans') || name.includes('trouser') || name.includes('pant')) return Math.floor(Math.random() * 800) + 700;
-    if (name.includes('dress') || name.includes('kurti')) return Math.floor(Math.random() * 1000) + 800;
-    if (name.includes('shoe') || name.includes('sneaker') || name.includes('boot')) return Math.floor(Math.random() * 2000) + 1500;
-    if (name.includes('bag') || name.includes('backpack')) return Math.floor(Math.random() * 1500) + 1000;
-    
-    // Home & Kitchen
-    if (name.includes('refrigerator') || name.includes('fridge')) return Math.floor(Math.random() * 10000) + 15000;
-    if (name.includes('washing machine')) return Math.floor(Math.random() * 8000) + 12000;
-    if (name.includes('ac') || name.includes('air conditioner')) return Math.floor(Math.random() * 15000) + 25000;
-    if (name.includes('microwave') || name.includes('oven')) return Math.floor(Math.random() * 5000) + 8000;
-    if (name.includes('mixer') || name.includes('grinder')) return Math.floor(Math.random() * 2000) + 2500;
-    
-    // Books & Stationery
-    if (name.includes('book')) return Math.floor(Math.random() * 300) + 200;
-    if (name.includes('notebook') || name.includes('diary')) return Math.floor(Math.random() * 100) + 100;
-    
-    // Default for unknown categories
-    return Math.floor(Math.random() * 2000) + 1000;
-  };
-
-  const detectPlatform = (url) => {
-    if (url.includes('amazon')) return 'Amazon';
-    if (url.includes('flipkart')) return 'Flipkart';
-    if (url.includes('myntra')) return 'Myntra';
-    if (url.includes('ajio')) return 'Ajio';
-    if (url.includes('meesho')) return 'Meesho';
-    if (url.includes('snapdeal')) return 'Snapdeal';
-    return 'E-commerce';
-  };
-
-  const handleBuyNow = () => {
-    if (!manualPrice || parseFloat(manualPrice) <= 0) {
-      alert('Please enter a valid price');
-      return;
-    }
-    
-    // Update product details with manual price
-    setProductDetails(prev => ({
-      ...prev,
-      price: parseFloat(manualPrice)
-    }));
-    
-    setQuickBuyDialogOpen(false);
-    setPaymentDialogOpen(true);
-  };
-
-  const handlePayment = () => {
-    if (paymentMethod === 'card') {
-      if (!cardDetails.number || !cardDetails.cvv || !cardDetails.expiry) {
-        alert('Please fill all card details');
-        return;
-      }
-    }
-
-    // Create new order
-    const newOrder = {
-      _id: 'ord' + Date.now(),
-      status: 'pending',
-      customer: { name: user.name },
-      pickupLocation: { address: `${productDetails.platform} Warehouse, ${METRO_CITIES[0].name}` },
-      dropLocation: { address: addresses.find(a => a.isDefault)?.street || 'Customer Address' },
-      packageDetails: productDetails.name,
-      productLink: productDetails.link,
-      payment: productDetails.price,
-      paymentMethod: paymentMethod,
-      createdAt: new Date(),
-      expectedDeliveryDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    };
-
-    // Add to deliveries
-    const updatedDeliveries = [newOrder, ...deliveries];
-    setDeliveries(updatedDeliveries);
-
-    // Update stats
-    setStats(prev => ({
-      ...prev,
-      totalDeliveries: updatedDeliveries.length,
-      pendingDeliveries: updatedDeliveries.filter(d => d.status === 'pending').length,
-    }));
-
-    // Save to user-specific customerOrders
-    const customerOrders = JSON.parse(localStorage.getItem(getUserKey('customerOrders')) || '[]');
-    customerOrders.push(newOrder);
-    localStorage.setItem(getUserKey('customerOrders'), JSON.stringify(customerOrders));
-    
-    // Also save to shared customerOrders for admin to see (with customer info)
-    const sharedOrders = JSON.parse(localStorage.getItem('customerOrders') || '[]');
-    sharedOrders.push({ ...newOrder, customerEmail: user?.email, customerName: user?.name });
-    localStorage.setItem('customerOrders', JSON.stringify(sharedOrders));
-
-    // Close dialogs and reset
-    setPaymentDialogOpen(false);
-    setProductDetails(null);
-    setProductLink('');
-    setCardDetails({ number: '', cvv: '', expiry: '' });
-
-    alert('✅ Order placed successfully! Your order is pending and will be assigned to a driver soon.');
-  };
-
   const handleSetDefaultAddress = (addressId) => {
     const updatedAddresses = addresses.map(addr => ({
       ...addr,
@@ -574,11 +423,76 @@ const UserDashboard = () => {
     <Box
       sx={{
         minHeight: '100vh',
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        position: 'relative',
+        overflow: 'hidden',
         pb: 4,
       }}
     >
-      <Container maxWidth="lg" sx={{ pt: 4 }}>
+      {/* Animated Background with Video Concept */}
+      <Box
+        sx={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
+          zIndex: 0,
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            background: `
+              radial-gradient(circle at 20% 50%, rgba(102, 126, 234, 0.3) 0%, transparent 50%),
+              radial-gradient(circle at 80% 80%, rgba(118, 75, 162, 0.3) 0%, transparent 50%),
+              radial-gradient(circle at 40% 20%, rgba(240, 147, 251, 0.2) 0%, transparent 40%)
+            `,
+            animation: 'float 20s ease-in-out infinite',
+          },
+          '&::after': {
+            content: '""',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            backgroundImage: `
+              repeating-linear-gradient(
+                45deg,
+                transparent,
+                transparent 60px,
+                rgba(255, 255, 255, 0.03) 60px,
+                rgba(255, 255, 255, 0.03) 61px
+              )
+            `,
+            animation: 'slide 30s linear infinite',
+          },
+          '@keyframes float': {
+            '0%, 100%': {
+              transform: 'translate(0, 0) scale(1)',
+            },
+            '33%': {
+              transform: 'translate(30px, -30px) scale(1.1)',
+            },
+            '66%': {
+              transform: 'translate(-20px, 20px) scale(0.9)',
+            },
+          },
+          '@keyframes slide': {
+            '0%': {
+              transform: 'translateX(0)',
+            },
+            '100%': {
+              transform: 'translateX(60px)',
+            },
+          },
+        }}
+      />
+
+      <Container maxWidth="lg" sx={{ pt: 4, position: 'relative', zIndex: 1 }}>
         <Fade in={true} timeout={600}>
           <Paper
             elevation={0}
@@ -588,51 +502,101 @@ const UserDashboard = () => {
               borderRadius: 3,
               background: 'rgba(255, 255, 255, 0.95)',
               backdropFilter: 'blur(20px)',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
             }}
           >
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <IconButton
-                onClick={handleProfileMenuOpen}
-                sx={{ p: 0 }}
-              >
-                <Avatar
-                  sx={{
-                    width: 60,
-                    height: 60,
-                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                    fontSize: '1.5rem',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    transition: 'all 0.3s ease',
-                    '&:hover': {
-                      transform: 'scale(1.1)',
-                      boxShadow: '0 4px 20px rgba(102, 126, 234, 0.5)',
-                    },
-                  }}
-                >
-                  {user.name?.charAt(0)}
-                </Avatar>
-              </IconButton>
-              <Box>
-                <Typography
-                  variant="h4"
-                  sx={{
-                    fontWeight: 700,
-                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            {/* TrackMate Logo - Clickable to Home */}
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Button
+                component={Link}
+                to="/"
+                sx={{
+                  textTransform: 'none',
+                  fontSize: '1.8rem',
+                  fontWeight: 800,
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  backgroundClip: 'text',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  padding: 0,
+                  minWidth: 'auto',
+                  '&:hover': {
+                    background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
                     backgroundClip: 'text',
                     WebkitBackgroundClip: 'text',
                     WebkitTextFillColor: 'transparent',
-                  }}
+                    transform: 'scale(1.05)',
+                  },
+                  transition: 'all 0.3s ease',
+                }}
+              >
+                🚚 TrackMate
+              </Button>
+            </Box>
+
+            <Divider sx={{ mb: 3 }} />
+
+            {/* User Profile Section */}
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <IconButton
+                  onClick={handleProfileMenuOpen}
+                  sx={{ p: 0 }}
                 >
-                  Customer Dashboard
-                </Typography>
-                <Typography variant="body1" color="text.secondary">
-                  Welcome back, {user.name}!
-                </Typography>
+                  <Avatar
+                    src={customerProfile.profilePicture}
+                    sx={{
+                      width: 60,
+                      height: 60,
+                      background: customerProfile.profilePicture ? 'transparent' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                      fontSize: '1.5rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      transition: 'all 0.3s ease',
+                      border: '3px solid rgba(102, 126, 234, 0.3)',
+                      '&:hover': {
+                        transform: 'scale(1.1)',
+                        boxShadow: '0 4px 20px rgba(102, 126, 234, 0.5)',
+                      },
+                    }}
+                  >
+                    {!customerProfile.profilePicture && user.name?.charAt(0)}
+                  </Avatar>
+                </IconButton>
+                <Box>
+                  <Typography
+                    variant="h4"
+                    sx={{
+                      fontWeight: 700,
+                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                      backgroundClip: 'text',
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                    }}
+                  >
+                    Welcome, {user.name}! 👋
+                  </Typography>
+                  <Typography variant="body1" color="text.secondary" sx={{ fontWeight: 500 }}>
+                    Your Customer Dashboard
+                  </Typography>
+                </Box>
               </Box>
+
+              <IconButton
+                onClick={logout}
+                sx={{
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  color: 'white',
+                  '&:hover': {
+                    background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                    transform: 'scale(1.05)',
+                  },
+                  transition: 'all 0.3s ease',
+                }}
+              >
+                <Logout />
+              </IconButton>
             </Box>
 
             {/* Profile Menu */}
@@ -665,21 +629,6 @@ const UserDashboard = () => {
                 </Box>
               </MenuItem>
             </Menu>
-
-            <IconButton
-              onClick={logout}
-              sx={{
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                color: 'white',
-                '&:hover': {
-                  background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
-                  transform: 'scale(1.05)',
-                },
-                transition: 'all 0.3s ease',
-              }}
-            >
-              <Logout />
-            </IconButton>
           </Paper>
         </Fade>
 
@@ -751,8 +700,9 @@ const UserDashboard = () => {
                 <Button
                   fullWidth
                   variant="contained"
-                  startIcon={<ShoppingCart />}
-                  onClick={handleQuickBuyOpen}
+                  component={Link}
+                  to="/user/book-logistics"
+                  startIcon={<LocalShipping />}
                   sx={{
                     py: 1.5,
                     borderRadius: 2,
@@ -767,7 +717,7 @@ const UserDashboard = () => {
                     },
                   }}
                 >
-                  Quick Buy from Link
+                  Book Logistics Service
                 </Button>
               </Grid>
               <Grid item xs={12} sm={4}>
@@ -1229,6 +1179,64 @@ const UserDashboard = () => {
           <Divider />
           <DialogContent sx={{ pt: 3 }}>
             <Grid container spacing={3}>
+              {/* Profile Picture Upload */}
+              <Grid item xs={12}>
+                <Box sx={{ textAlign: 'center', mb: 2 }}>
+                  <Avatar
+                    src={profilePicturePreview}
+                    sx={{
+                      width: 120,
+                      height: 120,
+                      margin: '0 auto',
+                      mb: 2,
+                      background: profilePicturePreview ? 'transparent' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                      fontSize: '3rem',
+                      fontWeight: 700,
+                      border: '4px solid rgba(102, 126, 234, 0.2)',
+                    }}
+                  >
+                    {!profilePicturePreview && customerProfile.name?.charAt(0)}
+                  </Avatar>
+                  {editingProfile && (
+                    <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
+                      <Button
+                        variant="contained"
+                        component="label"
+                        size="small"
+                        sx={{
+                          textTransform: 'none',
+                          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                        }}
+                      >
+                        Upload Picture
+                        <input
+                          type="file"
+                          hidden
+                          accept="image/*"
+                          onChange={handleProfilePictureChange}
+                        />
+                      </Button>
+                      {profilePicturePreview && (
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          color="error"
+                          onClick={handleRemoveProfilePicture}
+                          sx={{ textTransform: 'none' }}
+                        >
+                          Remove
+                        </Button>
+                      )}
+                    </Box>
+                  )}
+                  {editingProfile && (
+                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
+                      Max file size: 5MB (JPG, PNG, GIF)
+                    </Typography>
+                  )}
+                </Box>
+              </Grid>
+
               <Grid item xs={12}>
                 <Box
                   sx={{
@@ -1355,208 +1363,6 @@ const UserDashboard = () => {
                 Close
               </Button>
             )}
-          </DialogActions>
-        </Dialog>
-        {/* Quick Buy Dialog */}
-        <Dialog open={quickBuyDialogOpen} onClose={() => setQuickBuyDialogOpen(false)} maxWidth="sm" fullWidth>
-          <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <ShoppingCart sx={{ color: '#f093fb' }} />
-              <Typography variant="h6" sx={{ fontWeight: 600 }}>Quick Buy from Link</Typography>
-            </Box>
-            <IconButton onClick={() => setQuickBuyDialogOpen(false)}><Close /></IconButton>
-          </DialogTitle>
-          <Divider />
-          <DialogContent sx={{ pt: 3 }}>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Paste a product link from Amazon, Flipkart, or any e-commerce website
-            </Typography>
-            
-            <TextField
-              fullWidth
-              label="Product Link"
-              placeholder="https://www.amazon.in/product-name/..."
-              value={productLink}
-              onChange={(e) => setProductLink(e.target.value)}
-              InputProps={{
-                startAdornment: <LinkIcon sx={{ mr: 1, color: 'text.secondary' }} />,
-              }}
-              sx={{ mb: 3 }}
-            />
-
-            {!productDetails && (
-              <Button
-                fullWidth
-                variant="contained"
-                onClick={handleProductLinkSubmit}
-                sx={{
-                  py: 1.5,
-                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                  '&:hover': {
-                    background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
-                  },
-                }}
-              >
-                Fetch Product Details
-              </Button>
-            )}
-
-            {productDetails && (
-              <Paper sx={{ p: 3, background: 'rgba(102, 126, 234, 0.05)', border: '2px solid rgba(102, 126, 234, 0.2)' }}>
-                <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
-                  {productDetails.name}
-                </Typography>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                  <Chip label={productDetails.platform} color="primary" size="small" />
-                  <Typography variant="h5" sx={{ fontWeight: 700, color: '#4caf50' }}>
-                    ₹{parseInt(manualPrice || 0).toLocaleString('en-IN')}
-                  </Typography>
-                </Box>
-                
-                <TextField
-                  fullWidth
-                  label="Product Price (Editable)"
-                  type="number"
-                  value={manualPrice}
-                  onChange={(e) => setManualPrice(e.target.value)}
-                  placeholder="Enter price in ₹"
-                  InputProps={{
-                    startAdornment: <Typography sx={{ mr: 1, color: 'text.secondary' }}>₹</Typography>,
-                  }}
-                  sx={{ mb: 2 }}
-                  helperText="Price auto-detected. You can edit if needed."
-                />
-                
-                <Divider sx={{ my: 2 }} />
-                <Button
-                  fullWidth
-                  variant="contained"
-                  size="large"
-                  startIcon={<Payment />}
-                  onClick={handleBuyNow}
-                  sx={{
-                    py: 1.5,
-                    background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-                    fontSize: '1.1rem',
-                    fontWeight: 700,
-                    '&:hover': {
-                      background: 'linear-gradient(135deg, #f5576c 0%, #f093fb 100%)',
-                    },
-                  }}
-                >
-                  Buy Now
-                </Button>
-              </Paper>
-            )}
-          </DialogContent>
-        </Dialog>
-
-        {/* Payment Dialog */}
-        <Dialog open={paymentDialogOpen} onClose={() => setPaymentDialogOpen(false)} maxWidth="sm" fullWidth>
-          <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Payment sx={{ color: '#4caf50' }} />
-              <Typography variant="h6" sx={{ fontWeight: 600 }}>Payment</Typography>
-            </Box>
-            <IconButton onClick={() => setPaymentDialogOpen(false)}><Close /></IconButton>
-          </DialogTitle>
-          <Divider />
-          <DialogContent sx={{ pt: 3 }}>
-            {productDetails && productDetails.price && (
-              <Paper sx={{ p: 2, mb: 3, background: 'rgba(76, 175, 80, 0.05)' }}>
-                <Typography variant="body2" color="text.secondary">Order Total</Typography>
-                <Typography variant="h4" sx={{ fontWeight: 700, color: '#4caf50' }}>
-                  ₹{productDetails.price.toLocaleString('en-IN')}
-                </Typography>
-              </Paper>
-            )}
-
-            <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>Select Payment Method</Typography>
-            
-            <FormControl fullWidth sx={{ mb: 3 }}>
-              <Select
-                value={paymentMethod}
-                onChange={(e) => setPaymentMethod(e.target.value)}
-              >
-                <MenuItem value="card">Credit/Debit Card</MenuItem>
-                <MenuItem value="upi">UPI</MenuItem>
-                <MenuItem value="cod">Cash on Delivery</MenuItem>
-              </Select>
-            </FormControl>
-
-            {paymentMethod === 'card' && (
-              <Box>
-                <TextField
-                  fullWidth
-                  label="Card Number"
-                  placeholder="1234 5678 9012 3456"
-                  value={cardDetails.number}
-                  onChange={(e) => setCardDetails({...cardDetails, number: e.target.value})}
-                  sx={{ mb: 2 }}
-                  InputProps={{
-                    startAdornment: <CreditCard sx={{ mr: 1, color: 'text.secondary' }} />,
-                  }}
-                />
-                <Grid container spacing={2}>
-                  <Grid item xs={6}>
-                    <TextField
-                      fullWidth
-                      label="Expiry (MM/YY)"
-                      placeholder="12/25"
-                      value={cardDetails.expiry}
-                      onChange={(e) => setCardDetails({...cardDetails, expiry: e.target.value})}
-                    />
-                  </Grid>
-                  <Grid item xs={6}>
-                    <TextField
-                      fullWidth
-                      label="CVV"
-                      placeholder="123"
-                      value={cardDetails.cvv}
-                      onChange={(e) => setCardDetails({...cardDetails, cvv: e.target.value})}
-                      type="password"
-                    />
-                  </Grid>
-                </Grid>
-              </Box>
-            )}
-
-            {paymentMethod === 'upi' && (
-              <TextField
-                fullWidth
-                label="UPI ID"
-                placeholder="yourname@upi"
-                sx={{ mb: 2 }}
-              />
-            )}
-
-            {paymentMethod === 'cod' && productDetails?.price && (
-              <Paper sx={{ p: 2, background: 'rgba(255, 152, 0, 0.05)', border: '1px solid rgba(255, 152, 0, 0.3)' }}>
-                <Typography variant="body2" color="text.secondary">
-                  You will pay ₹{productDetails.price.toLocaleString('en-IN')} in cash when the product is delivered.
-                </Typography>
-              </Paper>
-            )}
-          </DialogContent>
-          <Divider />
-          <DialogActions sx={{ p: 2 }}>
-            <Button onClick={() => setPaymentDialogOpen(false)} sx={{ textTransform: 'none' }}>
-              Cancel
-            </Button>
-            <Button
-              variant="contained"
-              onClick={handlePayment}
-              sx={{
-                textTransform: 'none',
-                background: 'linear-gradient(135deg, #4caf50 0%, #45a049 100%)',
-                px: 4,
-                '&:hover': {
-                  background: 'linear-gradient(135deg, #45a049 0%, #4caf50 100%)',
-                },
-              }}
-            >
-              Pay {productDetails?.price ? `₹${productDetails.price.toLocaleString('en-IN')}` : '₹0'}
-            </Button>
           </DialogActions>
         </Dialog>
       </Container>

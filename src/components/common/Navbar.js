@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTheme } from '../../context/ThemeContext';
+import { useAuth } from '../../services/AuthContext';
 import './Navbar.css';
 
 const Navbar = () => {
   const [isExploreOpen, setIsExploreOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { theme, toggleTheme, isDark } = useTheme();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const exploreRef = useRef(null);
 
@@ -29,7 +31,24 @@ const Navbar = () => {
   }, [navigate]);
 
   const handleLogoClick = () => {
-    navigate('/home');
+    navigate('/');
+    setIsMobileMenuOpen(false);
+  };
+
+  const handleProfileClick = () => {
+    // Navigate based on user role
+    const roleRoutes = {
+      admin: '/admin',
+      driver: '/driver',
+      customer: '/user',
+    };
+    navigate(roleRoutes[user?.role] || '/user');
+    setIsMobileMenuOpen(false);
+  };
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
     setIsMobileMenuOpen(false);
   };
 
@@ -107,8 +126,23 @@ const Navbar = () => {
 
           {/* Auth Buttons */}
           <div className="auth-buttons">
-            <Link to="/login" className="btn btn-login">Login</Link>
-            <Link to="/register" className="btn btn-signup">Signup</Link>
+            {user ? (
+              // Show Profile and Logout when logged in
+              <>
+                <button onClick={handleProfileClick} className="btn btn-profile">
+                  Profile
+                </button>
+                <button onClick={handleLogout} className="btn btn-logout">
+                  Logout
+                </button>
+              </>
+            ) : (
+              // Show Login and Signup when not logged in
+              <>
+                <Link to="/login" className="btn btn-login">Login</Link>
+                <Link to="/register" className="btn btn-signup">Signup</Link>
+              </>
+            )}
           </div>
         </div>
       </div>

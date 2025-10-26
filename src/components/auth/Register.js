@@ -32,9 +32,9 @@ const Register = () => {
     password: '',
     confirmPassword: '',
     phone: '',
-    address: '',
     role: 'customer',
   });
+  const [fieldErrors, setFieldErrors] = useState({});
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -44,24 +44,67 @@ const Register = () => {
   const navigate = useNavigate();
 
   const handleChange = (e) => {
+    const { name, value } = e.target;
+    
+    // Phone number validation - only allow digits
+    if (name === 'phone') {
+      const phoneValue = value.replace(/\D/g, ''); // Remove non-digits
+      if (phoneValue.length <= 10) {
+        setFormData({
+          ...formData,
+          [name]: phoneValue,
+        });
+        // Clear phone error if valid
+        if (phoneValue.length === 10) {
+          setFieldErrors({ ...fieldErrors, phone: '' });
+        }
+      }
+      return;
+    }
+    
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value,
+      [name]: value,
     });
+    // Clear field error when user types
+    if (fieldErrors[name]) {
+      setFieldErrors({ ...fieldErrors, [name]: '' });
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setFieldErrors({});
+
+    const errors = {};
 
     // Validation
-    if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
-      return;
+    if (!formData.name.trim()) {
+      errors.name = 'Name is required';
+    }
+
+    if (!formData.email.trim()) {
+      errors.email = 'Email is required';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      errors.email = 'Invalid email format';
+    }
+
+    if (formData.phone.length !== 10) {
+      errors.phone = 'Phone number must be exactly 10 digits';
     }
 
     if (formData.password.length < 6) {
-      setError('Password must be at least 6 characters long');
+      errors.password = 'Password must be at least 6 characters long';
+    }
+
+    if (formData.password !== formData.confirmPassword) {
+      errors.confirmPassword = 'Passwords do not match';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      setError('Please fix the errors below');
       return;
     }
 
@@ -72,15 +115,14 @@ const Register = () => {
       const result = await register(userData);
 
       if (result.success) {
-        // Redirect based on role
-        const roleRoutes = {
-          admin: '/admin',
-          driver: '/driver',
-          customer: '/user',
-        };
-        navigate(roleRoutes[result.user?.role] || '/user');
+        // Redirect to login page after successful signup
+        navigate('/login', { 
+          state: { 
+            message: 'Registration successful! Please login with your credentials.' 
+          } 
+        });
       } else {
-        setError(result.message);
+        setError(result.message || 'Registration failed');
       }
     } catch (error) {
       setError('An unexpected error occurred');
@@ -201,6 +243,8 @@ const Register = () => {
                     autoFocus
                     value={formData.name}
                     onChange={handleChange}
+                    error={!!fieldErrors.name}
+                    helperText={fieldErrors.name}
                     sx={{
                       '& .MuiOutlinedInput-root': {
                         borderRadius: 2,
@@ -221,8 +265,11 @@ const Register = () => {
                     label="Email Address"
                     name="email"
                     autoComplete="email"
+                    type="email"
                     value={formData.email}
                     onChange={handleChange}
+                    error={!!fieldErrors.email}
+                    helperText={fieldErrors.email}
                     sx={{
                       '& .MuiOutlinedInput-root': {
                         borderRadius: 2,
@@ -245,6 +292,14 @@ const Register = () => {
                     autoComplete="tel"
                     value={formData.phone}
                     onChange={handleChange}
+                    error={!!fieldErrors.phone}
+                    helperText={fieldErrors.phone || 'Enter 10 digit phone number'}
+                    placeholder="1234567890"
+                    inputProps={{
+                      maxLength: 10,
+                      pattern: '[0-9]*',
+                      inputMode: 'numeric'
+                    }}
                     sx={{
                       '& .MuiOutlinedInput-root': {
                         borderRadius: 2,
@@ -286,29 +341,6 @@ const Register = () => {
                     </Select>
                   </FormControl>
                 </Grid>
-                <Grid item xs={12}>
-                  <TextField
-                    required
-                    fullWidth
-                    name="address"
-                    label="Address"
-                    id="address"
-                    multiline
-                    rows={2}
-                    value={formData.address}
-                    onChange={handleChange}
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        borderRadius: 2,
-                        transition: 'all 0.3s ease',
-                        '&:hover': {
-                          transform: 'translateY(-2px)',
-                          boxShadow: '0 4px 12px rgba(102, 126, 234, 0.15)',
-                        },
-                      },
-                    }}
-                  />
-                </Grid>
                 <Grid item xs={12} sm={6}>
                   <TextField
                     required
@@ -320,6 +352,8 @@ const Register = () => {
                     autoComplete="new-password"
                     value={formData.password}
                     onChange={handleChange}
+                    error={!!fieldErrors.password}
+                    helperText={fieldErrors.password || 'Minimum 6 characters'}
                     InputProps={{
                       endAdornment: (
                         <InputAdornment position="end">
@@ -355,6 +389,8 @@ const Register = () => {
                     autoComplete="new-password"
                     value={formData.confirmPassword}
                     onChange={handleChange}
+                    error={!!fieldErrors.confirmPassword}
+                    helperText={fieldErrors.confirmPassword}
                     InputProps={{
                       endAdornment: (
                         <InputAdornment position="end">

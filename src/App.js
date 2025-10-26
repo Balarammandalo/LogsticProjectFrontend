@@ -29,6 +29,7 @@ import AllDeliveries from './components/driver/AllDeliveries';
 
 // User Components
 import TrackDelivery from './components/user/TrackDelivery';
+import LogisticsBooking from './components/user/LogisticsBooking';
 
 // Map Components
 import LiveMap from './components/map/LiveMap';
@@ -36,6 +37,15 @@ import RouteMap from './components/map/RouteMap';
 
 // Home Dashboard
 import HomeDashboard from './components/home/HomeDashboard';
+
+// Public Pages
+import AboutUs from './components/pages/AboutUs';
+import Services from './components/pages/Services';
+import Contact from './components/pages/Contact';
+import Careers from './components/pages/Careers';
+import Documentation from './components/pages/Documentation';
+import ApiReference from './components/pages/ApiReference';
+import Blog from './components/pages/Blog';
 
 const theme = createTheme({
   palette: {
@@ -60,6 +70,13 @@ function App() {
                 {/* Public Routes */}
                 <Route path="/" element={<HomeDashboard />} />
                 <Route path="/home" element={<HomeDashboard />} />
+                <Route path="/about" element={<AboutUs />} />
+                <Route path="/services" element={<Services />} />
+                <Route path="/contact" element={<Contact />} />
+                <Route path="/careers" element={<Careers />} />
+                <Route path="/documentation" element={<Documentation />} />
+                <Route path="/api-reference" element={<ApiReference />} />
+                <Route path="/blog" element={<Blog />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
 
@@ -82,6 +99,7 @@ function App() {
 
               <Route path="/user" element={<PrivateRoute allowedRoles={['customer']} /> }>
                 <Route index element={<UserDashboard />} />
+                <Route path="book-logistics" element={<LogisticsBooking />} />
                 <Route path="deliveries/:id/track" element={<TrackDelivery />} />
                 <Route path="map/route" element={<RouteMap />} />
               </Route>

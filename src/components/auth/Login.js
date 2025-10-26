@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../services/AuthContext';
 import {
   Container,
@@ -26,11 +26,24 @@ const Login = () => {
     password: '',
   });
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
   const { login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    // Check if there's a success message from registration
+    if (location.state?.message) {
+      setSuccessMessage(location.state.message);
+      // Clear the message after 5 seconds
+      setTimeout(() => setSuccessMessage(''), 5000);
+      // Clear the location state
+      window.history.replaceState({}, document.title);
+    }
+  }, [location]);
 
   const handleChange = (e) => {
     setFormData({
@@ -151,6 +164,21 @@ const Login = () => {
                 </Typography>
               </Box>
             </Zoom>
+
+            {successMessage && (
+              <Fade in={true}>
+                <Alert
+                  severity="success"
+                  sx={{
+                    mb: 2,
+                    borderRadius: 2,
+                    animation: 'slideInLeft 0.4s ease-out',
+                  }}
+                >
+                  {successMessage}
+                </Alert>
+              </Fade>
+            )}
 
             {error && (
               <Fade in={true}>
