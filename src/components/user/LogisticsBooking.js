@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../services/AuthContext';
-import BookingMap from '../map/BookingMap';
+import GoogleBookingMapWithAutocomplete from '../map/GoogleBookingMapWithAutocomplete';
 import { searchLocationsDebounced, calculateDistance } from '../../services/locationService';
 import {
   Container,
@@ -294,7 +294,10 @@ const LogisticsBooking = () => {
     const newBooking = {
       _id: 'ord' + Date.now(),
       status: 'pending',
-      customer: { name: user.name, email: user.email },
+      customer: { name: user.name, email: user.email, id: user.id || user._id },
+      customerEmail: user.email,
+      customerName: user.name,
+      userId: user.id || user._id,
       pickupLocation: { address: pickupLocation },
       dropLocation: { address: dropLocation },
       packageDetails: `${packageDescription} (${packageWeight} kg)`,
@@ -318,7 +321,7 @@ const LogisticsBooking = () => {
 
     // Also save to shared orders
     const sharedOrders = JSON.parse(localStorage.getItem('customerOrders') || '[]');
-    sharedOrders.push({ ...newBooking, customerEmail: user?.email, customerName: user?.name });
+    sharedOrders.push(newBooking);
     localStorage.setItem('customerOrders', JSON.stringify(sharedOrders));
 
     setSuccess(true);
@@ -425,145 +428,6 @@ const LogisticsBooking = () => {
                 📍 Enter Pickup & Drop Locations
               </Typography>
               <Grid container spacing={3}>
-                <Grid item xs={12} md={6}>
-                  <Box sx={{ position: 'relative' }} ref={pickupRef}>
-                    <TextField
-                      fullWidth
-                      label="Pickup Location"
-                      value={pickupLocation}
-                      onChange={(e) => handlePickupSearch(e.target.value)}
-                      placeholder="Search for pickup location..."
-                      InputProps={{
-                        startAdornment: (
-                          <InputAdornment position="start">
-                            <MyLocation color="primary" />
-                          </InputAdornment>
-                        ),
-                      }}
-                      sx={{ mb: 2 }}
-                    />
-                    {showPickupSuggestions && (
-                      <Paper
-                        sx={{
-                          position: 'absolute',
-                          top: '100%',
-                          left: 0,
-                          right: 0,
-                          zIndex: 1000,
-                          maxHeight: 300,
-                          overflow: 'auto',
-                          boxShadow: 3,
-                        }}
-                      >
-                        {loadingSuggestions ? (
-                          <Box sx={{ p: 2, textAlign: 'center' }}>
-                            <Typography variant="body2" color="text.secondary">
-                              Searching locations...
-                            </Typography>
-                          </Box>
-                        ) : pickupSuggestions.length > 0 ? (
-                          pickupSuggestions.map((suggestion, index) => (
-                            <Box
-                              key={index}
-                              onClick={() => selectPickupLocation(suggestion)}
-                              sx={{
-                                p: 2,
-                                cursor: 'pointer',
-                                '&:hover': {
-                                  backgroundColor: 'rgba(102, 126, 234, 0.1)',
-                                },
-                                borderBottom: '1px solid #eee',
-                              }}
-                            >
-                              <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                                📍 {suggestion.city || suggestion.name}
-                              </Typography>
-                              <Typography variant="caption" color="text.secondary">
-                                {suggestion.state && `${suggestion.state}, `}{suggestion.country}
-                              </Typography>
-                            </Box>
-                          ))
-                        ) : (
-                          <Box sx={{ p: 2, textAlign: 'center' }}>
-                            <Typography variant="body2" color="text.secondary">
-                              No locations found
-                            </Typography>
-                          </Box>
-                        )}
-                      </Paper>
-                    )}
-                  </Box>
-                </Grid>
-
-                <Grid item xs={12} md={6}>
-                  <Box sx={{ position: 'relative' }} ref={dropRef}>
-                    <TextField
-                      fullWidth
-                      label="Drop Location"
-                      value={dropLocation}
-                      onChange={(e) => handleDropSearch(e.target.value)}
-                      placeholder="Search for drop location..."
-                      InputProps={{
-                        startAdornment: (
-                          <InputAdornment position="start">
-                            <LocationOn color="error" />
-                          </InputAdornment>
-                        ),
-                      }}
-                      sx={{ mb: 2 }}
-                    />
-                    {showDropSuggestions && (
-                      <Paper
-                        sx={{
-                          position: 'absolute',
-                          top: '100%',
-                          left: 0,
-                          right: 0,
-                          zIndex: 1000,
-                          maxHeight: 300,
-                          overflow: 'auto',
-                          boxShadow: 3,
-                        }}
-                      >
-                        {loadingSuggestions ? (
-                          <Box sx={{ p: 2, textAlign: 'center' }}>
-                            <Typography variant="body2" color="text.secondary">
-                              Searching locations...
-                            </Typography>
-                          </Box>
-                        ) : dropSuggestions.length > 0 ? (
-                          dropSuggestions.map((suggestion, index) => (
-                            <Box
-                              key={index}
-                              onClick={() => selectDropLocation(suggestion)}
-                              sx={{
-                                p: 2,
-                                cursor: 'pointer',
-                                '&:hover': {
-                                  backgroundColor: 'rgba(102, 126, 234, 0.1)',
-                                },
-                                borderBottom: '1px solid #eee',
-                              }}
-                            >
-                              <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                                📍 {suggestion.city || suggestion.name}
-                              </Typography>
-                              <Typography variant="caption" color="text.secondary">
-                                {suggestion.state && `${suggestion.state}, `}{suggestion.country}
-                              </Typography>
-                            </Box>
-                          ))
-                        ) : (
-                          <Box sx={{ p: 2, textAlign: 'center' }}>
-                            <Typography variant="body2" color="text.secondary">
-                              No locations found
-                            </Typography>
-                          </Box>
-                        )}
-                      </Paper>
-                    )}
-                  </Box>
-                </Grid>
 
                 <Grid item xs={12} md={6}>
                   <TextField
@@ -587,28 +451,44 @@ const LogisticsBooking = () => {
                   />
                 </Grid>
 
-                {/* Map Display */}
-                {(pickupLocation || dropLocation) && (
-                  <Grid item xs={12}>
-                    <Box sx={{ mt: 2 }}>
-                      <Typography variant="body2" sx={{ mb: 2, fontWeight: 600, color: '#667eea' }}>
-                        🗺️ Route Preview
-                      </Typography>
-                      <BookingMap 
-                        pickupLocation={pickupLocation} 
-                        dropLocation={dropLocation}
-                        height={350}
-                      />
-                      {pickupLocation && dropLocation && (
-                        <Alert severity="info" sx={{ mt: 2 }}>
-                          <Typography variant="body2">
-                            <strong>Route:</strong> {pickupLocation} → {dropLocation}
-                          </Typography>
-                        </Alert>
-                      )}
-                    </Box>
-                  </Grid>
-                )}
+                {/* Google Map for Location Selection */}
+                <Grid item xs={12}>
+                  <Box sx={{ mt: 2 }}>
+                    <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, color: '#667eea' }}>
+                      🗺️ Select Locations on Map
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                      Click the buttons below and then click on the map to select pickup (green) and drop (red) locations within India.
+                    </Typography>
+                    <GoogleBookingMapWithAutocomplete
+                      onPickupSelect={(location) => {
+                        if (location) {
+                          setPickupLocation(location.address);
+                          setPickupCoords({ lat: location.lat, lng: location.lng });
+                        } else {
+                          setPickupLocation('');
+                          setPickupCoords(null);
+                        }
+                      }}
+                      onDropSelect={(location) => {
+                        if (location) {
+                          setDropLocation(location.address);
+                          setDropCoords({ lat: location.lat, lng: location.lng });
+                        } else {
+                          setDropLocation('');
+                          setDropCoords(null);
+                        }
+                      }}
+                      onDistanceCalculated={(distanceData) => {
+                        setEstimatedDistance(Math.round(distanceData.distanceValue));
+                      }}
+                      pickupCoords={pickupCoords}
+                      dropCoords={dropCoords}
+                      height={500}
+                      apiKey={process.env.REACT_APP_GOOGLE_MAPS_API_KEY}
+                    />
+                  </Box>
+                </Grid>
               </Grid>
             </Box>
           )}

@@ -34,6 +34,7 @@ const AssignedDeliveries = () => {
 
   useEffect(() => {
     loadDeliveries();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadDeliveries = async () => {
@@ -192,16 +193,19 @@ const AssignedDeliveries = () => {
                         fullWidth
                         variant="contained"
                         component={Link}
-                        to={`/driver/deliveries/${delivery._id}/complete`}
+                        to={`/driver/delivery/${delivery._id}/complete`}
                         disabled={delivery.status === 'delivered' || delivery.status === 'cancelled'}
                         sx={{
                           transition: 'all 0.2s ease-in-out',
+                          background: delivery.status === 'picked-up' 
+                            ? 'linear-gradient(45deg, #4CAF50 30%, #81C784 90%)'
+                            : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                           '&:hover': {
                             transform: 'scale(1.02)',
                           },
                         }}
                       >
-                        Update Status
+                        {delivery.status === 'picked-up' ? 'Mark as Delivered' : 'Update Status'}
                         <ArrowForward sx={{ ml: 1, fontSize: 16 }} />
                       </Button>
                     </Box>

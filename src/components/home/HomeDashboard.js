@@ -1,10 +1,12 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../services/AuthContext';
 import Navbar from '../common/Navbar';
 import './HomeDashboard.css';
 
 const HomeDashboard = () => {
   const navigate = useNavigate();
+  const { user, isAuthenticated, isCustomer, isDriver } = useAuth();
 
   const features = [
     {
@@ -64,9 +66,34 @@ const HomeDashboard = () => {
             and real-time insights. Transform the way you manage deliveries.
           </p>
           <div className="hero-buttons">
-            <button className="btn-primary" onClick={() => navigate('/register')}>
-              Get Started Free
-            </button>
+            {isAuthenticated ? (
+              <>
+                {isCustomer && (
+                  <button className="btn-primary" onClick={() => navigate('/user/book-logistics')}>
+                    Get Started Free to Book for Logistic
+                  </button>
+                )}
+                {isDriver && (
+                  <button className="btn-primary" onClick={() => navigate('/driver/dashboard')}>
+                    Get Your Earnings
+                  </button>
+                )}
+                {!isCustomer && !isDriver && (
+                  <button className="btn-primary" onClick={() => navigate('/admin')}>
+                    Go to Dashboard
+                  </button>
+                )}
+              </>
+            ) : (
+              <>
+                <button className="btn-primary" onClick={() => navigate('/register')}>
+                  Get Started Free
+                </button>
+                <button className="btn-secondary" onClick={() => navigate('/login')}>
+                  Login
+                </button>
+              </>
+            )}
             <button className="btn-secondary" onClick={() => navigate('/services')}>
               Learn More
             </button>

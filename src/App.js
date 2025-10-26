@@ -30,11 +30,14 @@ import AssignedDeliveries from './components/driver/AssignedDeliveries';
 import MarkCompleted from './components/driver/MarkCompleted';
 import LiveTrackingMap from './components/driver/LiveTrackingMap';
 import AllDeliveries from './components/driver/AllDeliveries';
+import DeliveryCompletion from './components/driver/DeliveryCompletion';
+import EnhancedDriverDashboard from './components/driver/EnhancedDriverDashboard';
 
 // User Components
 import TrackDelivery from './components/user/TrackDelivery';
 import LogisticsBooking from './components/user/LogisticsBooking';
 import OrderDetails from './components/user/OrderDetails';
+import MyOrders from './components/user/MyOrders';
 
 // Map Components
 import LiveMap from './components/map/LiveMap';
@@ -97,11 +100,13 @@ function App() {
               </Route>
 
               <Route path="/driver" element={<PrivateRoute allowedRoles={['driver']} /> }>
-                <Route index element={<DriverDashboardNew />} />
-                <Route path="dashboard" element={<DriverDashboardNew />} />
+                <Route index element={<EnhancedDriverDashboard />} />
+                <Route path="dashboard" element={<EnhancedDriverDashboard />} />
+                <Route path="dashboard-new" element={<DriverDashboardNew />} />
                 <Route path="old" element={<DriverDashboard />} />
                 <Route path="deliveries" element={<AllDeliveries />} />
                 <Route path="assigned" element={<AssignedDeliveries />} />
+                <Route path="delivery/:orderId/complete" element={<DeliveryCompletion />} />
                 <Route path="completed" element={<MarkCompleted />} />
                 <Route path="tracking" element={<LiveTrackingMap />} />
               </Route>
@@ -111,6 +116,7 @@ function App() {
                 <Route path="dashboard" element={<UserDashboardNew />} />
                 <Route path="old" element={<UserDashboard />} />
                 <Route path="book-logistics" element={<LogisticsBooking />} />
+                <Route path="orders" element={<MyOrders />} />
                 <Route path="orders/:orderId" element={<OrderDetails />} />
                 <Route path="deliveries/:id/track" element={<TrackDelivery />} />
                 <Route path="map/route" element={<RouteMap />} />

@@ -100,9 +100,18 @@ const UserDashboardNew = () => {
     if (!user) return;
     
     const allOrders = JSON.parse(localStorage.getItem('customerOrders') || '[]');
-    const userOrders = allOrders.filter(order => 
-      order.customerEmail === user.email || order.userId === user.id
-    );
+    
+    // Filter orders by user email - ensure proper matching
+    const userOrders = allOrders.filter(order => {
+      // Check if order belongs to current user
+      const orderEmail = order.customerEmail || order.customer?.email;
+      const userId = order.userId || order.customer?.id;
+      
+      // Match by email (primary) or user ID (fallback)
+      return (orderEmail && orderEmail === user.email) || 
+             (userId && userId === user.id) ||
+             (userId && userId === user._id);
+    });
     
     userOrders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     setOrders(userOrders);

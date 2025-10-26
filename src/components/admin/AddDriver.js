@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import {
   Box,
   Typography,
@@ -13,33 +14,25 @@ import {
   FormControl,
   InputLabel,
   Select,
+  CircularProgress,
 } from '@mui/material';
 import { PersonAdd, CheckCircle } from '@mui/icons-material';
+
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 const AddDriver = () => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
+    phone: '',
     password: '',
-    mobile: '',
     licenseNumber: '',
-    assignedVehicle: '',
-    status: 'available',
+    vehicleType: '',
   });
 
-  const [vehicles, setVehicles] = useState([]);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
-
-  useEffect(() => {
-    loadVehicles();
-  }, []);
-
-  const loadVehicles = () => {
-    const storedVehicles = JSON.parse(localStorage.getItem('vehicles') || '[]');
-    // Only show available vehicles
-    setVehicles(storedVehicles.filter(v => v.status === 'available'));
-  };
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
     setFormData({
@@ -48,13 +41,15 @@ const AddDriver = () => {
     });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setLoading(true);
 
     // Validation
-    if (!formData.name || !formData.email || !formData.password || !formData.mobile || !formData.licenseNumber) {
+    if (!formData.name || !formData.email || !formData.password || !formData.phone) {
       setError('Please fill in all required fields');
+      setLoading(false);
       return;
     }
 
@@ -62,76 +57,59 @@ const AddDriver = () => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
       setError('Please enter a valid email address');
+      setLoading(false);
       return;
     }
 
     // Password validation
     if (formData.password.length < 6) {
       setError('Password must be at least 6 characters long');
+      setLoading(false);
       return;
     }
 
-    if (formData.mobile.length !== 10) {
-      setError('Mobile number must be 10 digits');
+    if (formData.phone.length !== 10) {
+      setError('Phone number must be 10 digits');
+      setLoading(false);
       return;
     }
 
-    // Check if email already exists
-    const existingUsers = JSON.parse(localStorage.getItem('users') || '[]');
-    if (existingUsers.some(u => u.email === formData.email)) {
-      setError('Email already exists. Please use a different email.');
-      return;
-    }
-
-    // Create driver object
-    const newDriver = {
-      _id: 'drv' + Date.now(),
-      ...formData,
-      createdAt: new Date().toISOString(),
-    };
-
-    // Save driver to localStorage
-    const drivers = JSON.parse(localStorage.getItem('drivers') || '[]');
-    drivers.push(newDriver);
-    localStorage.setItem('drivers', JSON.stringify(drivers));
-
-    // Create user account for driver login
-    const users = JSON.parse(localStorage.getItem('users') || '[]');
-    const newUser = {
-      id: newDriver._id,
-      name: formData.name,
-      email: formData.email,
-      password: formData.password, // In production, this should be hashed
-      role: 'driver',
-      mobile: formData.mobile,
-      createdAt: new Date().toISOString(),
-    };
-    users.push(newUser);
-    localStorage.setItem('users', JSON.stringify(users));
-
-    // If vehicle assigned, update vehicle status
-    if (formData.assignedVehicle) {
-      const vehicles = JSON.parse(localStorage.getItem('vehicles') || '[]');
-      const updatedVehicles = vehicles.map(v => {
-        if (v._id === formData.assignedVehicle) {
-          return { ...v, status: 'in-use', assignedDriver: newDriver._id };
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.post(
+        `${API_URL}/admin/drivers`,
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
         }
-        return v;
-      });
-      localStorage.setItem('vehicles', JSON.stringify(updatedVehicles));
-    }
+      );
 
-    setSuccess(true);
-    setFormData({
-      name: '',
-      email: '',
-      password: '',
-      mobile: '',
-      licenseNumber: '',
-      assignedVehicle: '',
-      status: 'available',
-    });
-    loadVehicles(); // Reload vehicles list
+      if (response.data.success) {
+        setSuccess(true);
+        setFormData({
+          name: '',
+          email: '',
+          phone: '',
+          password: '',
+          licenseNumber: '',
+          vehicleType: '',
+        });
+        
+        // Emit event to refresh drivers list
+        window.dispatchEvent(new Event('driverAdded'));
+      }
+    } catch (err) {
+      console.error('Error creating driver:', err);
+      setError(
+        err.response?.data?.message ||
+        'Failed to create driver. Please try again.'
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -189,13 +167,13 @@ const AddDriver = () => {
                   <Grid item xs={12} md={6}>
                     <TextField
                       fullWidth
-                      label="Mobile Number"
-                      name="mobile"
-                      value={formData.mobile}
+                      label="Phone Number"
+                      name="phone"
+                      value={formData.phone}
                       onChange={handleChange}
                       required
                       type="tel"
-                      placeholder="10-digit mobile number"
+                      placeholder="10-digit phone number"
                       inputProps={{ maxLength: 10 }}
                     />
                   </Grid>
@@ -214,37 +192,18 @@ const AddDriver = () => {
 
                   <Grid item xs={12} md={6}>
                     <FormControl fullWidth>
-                      <InputLabel>Assigned Vehicle</InputLabel>
+                      <InputLabel>Vehicle Type</InputLabel>
                       <Select
-                        name="assignedVehicle"
-                        value={formData.assignedVehicle}
+                        name="vehicleType"
+                        value={formData.vehicleType}
                         onChange={handleChange}
-                        label="Assigned Vehicle"
+                        label="Vehicle Type"
                       >
-                        <MenuItem value="">
-                          <em>No Vehicle (Available for assignment)</em>
-                        </MenuItem>
-                        {vehicles.map((vehicle) => (
-                          <MenuItem key={vehicle._id} value={vehicle._id}>
-                            {vehicle.vehicleNumber} - {vehicle.vehicleType} ({vehicle.capacity} kg)
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                  </Grid>
-
-                  <Grid item xs={12} md={6}>
-                    <FormControl fullWidth>
-                      <InputLabel>Status</InputLabel>
-                      <Select
-                        name="status"
-                        value={formData.status}
-                        onChange={handleChange}
-                        label="Status"
-                      >
-                        <MenuItem value="available">Available</MenuItem>
-                        <MenuItem value="on-trip">On Trip</MenuItem>
-                        <MenuItem value="off-duty">Off Duty</MenuItem>
+                        <MenuItem value=""><em>None</em></MenuItem>
+                        <MenuItem value="Bike">Bike</MenuItem>
+                        <MenuItem value="Van">Van</MenuItem>
+                        <MenuItem value="Mini Truck">Mini Truck</MenuItem>
+                        <MenuItem value="Truck">Truck</MenuItem>
                       </Select>
                     </FormControl>
                   </Grid>
@@ -261,7 +220,8 @@ const AddDriver = () => {
                       variant="contained"
                       size="large"
                       fullWidth
-                      startIcon={<PersonAdd />}
+                      disabled={loading}
+                      startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <PersonAdd />}
                       sx={{
                         py: 1.5,
                         textTransform: 'none',
@@ -273,7 +233,7 @@ const AddDriver = () => {
                         },
                       }}
                     >
-                      Add Driver
+                      {loading ? 'Adding Driver...' : 'Add Driver'}
                     </Button>
                   </Grid>
                 </Grid>
