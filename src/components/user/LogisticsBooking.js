@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../services/AuthContext';
-import GoogleBookingMapWithAutocomplete from '../map/GoogleBookingMapWithAutocomplete';
+import LeafletBookingMap from '../map/LeafletBookingMap';
 import { searchLocationsDebounced, calculateDistance } from '../../services/locationService';
 import {
   Container,
@@ -267,7 +267,7 @@ const LogisticsBooking = () => {
   };
 
   // Handle payment
-  const handlePayment = () => {
+  const handlePayment = async () => {
     setError('');
     
     if (paymentMethod === 'upi') {
@@ -290,46 +290,107 @@ const LogisticsBooking = () => {
       }
     }
 
-    // Create booking
-    const newBooking = {
-      _id: 'ord' + Date.now(),
-      status: 'pending',
-      customer: { name: user.name, email: user.email, id: user.id || user._id },
-      customerEmail: user.email,
-      customerName: user.name,
-      userId: user.id || user._id,
-      pickupLocation: { address: pickupLocation },
-      dropLocation: { address: dropLocation },
-      packageDetails: `${packageDescription} (${packageWeight} kg)`,
-      vehicleType: selectedVehicle.name,
-      payment: estimatedCost,
-      paymentMethod: paymentMethod === 'upi' ? 'UPI' : 'Card',
-      distance: estimatedDistance,
-      createdAt: new Date(),
-      expectedDeliveryDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    };
+    // Validate pickup and drop coordinates
+    if (!pickupCoords || !dropCoords) {
+      setError('Please select both pickup and drop locations on the map');
+      return;
+    }
 
-    // Save to localStorage
-    const getUserKey = (baseKey) => {
-      const userId = user?.id || user?.email || 'default';
-      return `${baseKey}_${userId}`;
-    };
+    try {
+      // Create booking payload for backend
+      const bookingData = {
+        pickupLocation: {
+          address: pickupLocation,
+          coordinates: {
+            latitude: pickupCoords.lat,
+            longitude: pickupCoords.lng,
+          },
+        },
+        dropLocation: {
+          address: dropLocation,
+          coordinates: {
+            latitude: dropCoords.lat,
+            longitude: dropCoords.lng,
+          },
+        },
+        packageDetails: {
+          description: packageDescription,
+          weight: parseFloat(packageWeight),
+        },
+        vehicleType: selectedVehicle.name,
+        distance: estimatedDistance,
+        scheduledPickupTime: new Date(Date.now() + 2 * 60 * 60 * 1000), // 2 hours from now
+        scheduledDeliveryTime: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours from now
+        payment: {
+          amount: estimatedCost,
+          method: paymentMethod === 'upi' ? 'UPI' : 'Card',
+          status: 'paid',
+        },
+      };
 
-    const customerOrders = JSON.parse(localStorage.getItem(getUserKey('customerOrders')) || '[]');
-    customerOrders.push(newBooking);
-    localStorage.setItem(getUserKey('customerOrders'), JSON.stringify(customerOrders));
+      console.log('Submitting booking:', bookingData);
 
-    // Also save to shared orders
-    const sharedOrders = JSON.parse(localStorage.getItem('customerOrders') || '[]');
-    sharedOrders.push(newBooking);
-    localStorage.setItem('customerOrders', JSON.stringify(sharedOrders));
+      // Send to backend API
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:5000/api/deliveries', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(bookingData),
+      });
 
-    setSuccess(true);
-    
-    // Redirect to dashboard after 2 seconds
-    setTimeout(() => {
-      navigate('/user');
-    }, 2000);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to create booking');
+      }
+
+      const savedBooking = await response.json();
+      console.log('Booking created successfully:', savedBooking);
+
+      // Also save to localStorage for backward compatibility
+      const newBooking = {
+        _id: savedBooking._id,
+        status: 'pending',
+        customer: { name: user.name, email: user.email, id: user.id || user._id },
+        customerEmail: user.email,
+        customerName: user.name,
+        userId: user.id || user._id,
+        pickupLocation: { address: pickupLocation, coordinates: pickupCoords },
+        dropLocation: { address: dropLocation, coordinates: dropCoords },
+        packageDetails: `${packageDescription} (${packageWeight} kg)`,
+        vehicleType: selectedVehicle.name,
+        payment: estimatedCost,
+        paymentMethod: paymentMethod === 'upi' ? 'UPI' : 'Card',
+        distance: estimatedDistance,
+        createdAt: new Date(),
+        expectedDeliveryDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      };
+
+      const getUserKey = (baseKey) => {
+        const userId = user?.id || user?.email || 'default';
+        return `${baseKey}_${userId}`;
+      };
+
+      const customerOrders = JSON.parse(localStorage.getItem(getUserKey('customerOrders')) || '[]');
+      customerOrders.push(newBooking);
+      localStorage.setItem(getUserKey('customerOrders'), JSON.stringify(customerOrders));
+
+      const sharedOrders = JSON.parse(localStorage.getItem('customerOrders') || '[]');
+      sharedOrders.push(newBooking);
+      localStorage.setItem('customerOrders', JSON.stringify(sharedOrders));
+
+      setSuccess(true);
+      
+      // Redirect to dashboard after 2 seconds
+      setTimeout(() => {
+        navigate('/user');
+      }, 2000);
+    } catch (error) {
+      console.error('Booking error:', error);
+      setError(error.message || 'Failed to create booking. Please try again.');
+    }
   };
 
   if (success) {
@@ -451,7 +512,7 @@ const LogisticsBooking = () => {
                   />
                 </Grid>
 
-                {/* Google Map for Location Selection */}
+                {/* Leaflet Map for Location Selection */}
                 <Grid item xs={12}>
                   <Box sx={{ mt: 2 }}>
                     <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, color: '#667eea' }}>
@@ -460,7 +521,7 @@ const LogisticsBooking = () => {
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                       Click the buttons below and then click on the map to select pickup (green) and drop (red) locations within India.
                     </Typography>
-                    <GoogleBookingMapWithAutocomplete
+                    <LeafletBookingMap
                       onPickupSelect={(location) => {
                         if (location) {
                           setPickupLocation(location.address);
@@ -485,7 +546,6 @@ const LogisticsBooking = () => {
                       pickupCoords={pickupCoords}
                       dropCoords={dropCoords}
                       height={500}
-                      apiKey={process.env.REACT_APP_GOOGLE_MAPS_API_KEY}
                     />
                   </Box>
                 </Grid>

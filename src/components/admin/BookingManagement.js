@@ -64,12 +64,37 @@ const BookingManagement = () => {
     delivered: 0,
   });
 
-  // Load bookings from localStorage
-  const loadBookings = () => {
-    const allBookings = JSON.parse(localStorage.getItem('customerOrders') || '[]');
-    setBookings(allBookings);
-    updateStats(allBookings);
-    filterBookings(allBookings, statusFilter);
+  // Load bookings from backend API
+  const loadBookings = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:5000/api/deliveries', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      if (response.ok) {
+        const apiBookings = await response.json();
+        console.log('Loaded bookings from API:', apiBookings);
+        setBookings(apiBookings);
+        updateStats(apiBookings);
+        filterBookings(apiBookings, statusFilter);
+      } else {
+        // Fallback to localStorage if API fails
+        const allBookings = JSON.parse(localStorage.getItem('customerOrders') || '[]');
+        setBookings(allBookings);
+        updateStats(allBookings);
+        filterBookings(allBookings, statusFilter);
+      }
+    } catch (error) {
+      console.error('Error loading bookings:', error);
+      // Fallback to localStorage
+      const allBookings = JSON.parse(localStorage.getItem('customerOrders') || '[]');
+      setBookings(allBookings);
+      updateStats(allBookings);
+      filterBookings(allBookings, statusFilter);
+    }
   };
 
   // Update statistics
@@ -102,15 +127,31 @@ const BookingManagement = () => {
         // Wait for connection to establish
         setTimeout(() => {
           if (socketService.on) {
+            // Join admin room
+            socketService.emit('join-admin-room');
+            console.log('Admin joined socket room');
+
             // Listen for new bookings
+            socketService.on('new-booking', (data) => {
+              console.log('📦 New booking received:', data);
+              setSuccessMessage(`New booking from ${data.delivery.customer?.name || 'Customer'}!`);
+              loadBookings();
+            });
+
             socketService.on('newBooking', (booking) => {
-              console.log('📦 New booking received:', booking);
+              console.log('📦 New booking received (legacy):', booking);
               loadBookings();
             });
 
             // Listen for booking updates
             socketService.on('bookingUpdated', (updatedBooking) => {
               console.log('📦 Booking updated:', updatedBooking);
+              loadBookings();
+            });
+
+            // Listen for delivery status updates
+            socketService.on('delivery-status-update', (data) => {
+              console.log('📦 Delivery status updated:', data);
               loadBookings();
             });
           }
@@ -556,10 +597,20 @@ const BookingManagement = () => {
                 <Grid item xs={12}>
                   <Typography variant="caption" color="text.secondary">Pickup Location</Typography>
                   <Typography variant="body1">{selectedBooking.pickupLocation?.address || selectedBooking.pickupLocation}</Typography>
+                  {selectedBooking.pickupLocation?.coordinates && (
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                      📍 Coordinates: {selectedBooking.pickupLocation.coordinates.latitude?.toFixed(4)}, {selectedBooking.pickupLocation.coordinates.longitude?.toFixed(4)}
+                    </Typography>
+                  )}
                 </Grid>
                 <Grid item xs={12}>
                   <Typography variant="caption" color="text.secondary">Drop Location</Typography>
                   <Typography variant="body1">{selectedBooking.dropLocation?.address || selectedBooking.dropLocation}</Typography>
+                  {selectedBooking.dropLocation?.coordinates && (
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                      📍 Coordinates: {selectedBooking.dropLocation.coordinates.latitude?.toFixed(4)}, {selectedBooking.dropLocation.coordinates.longitude?.toFixed(4)}
+                    </Typography>
+                  )}
                 </Grid>
                 <Grid item xs={12}>
                   <Divider sx={{ my: 1 }} />

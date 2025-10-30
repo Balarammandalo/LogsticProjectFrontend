@@ -33,6 +33,7 @@ import { BRAND } from '../../constants/branding';
 
 // Import sub-components
 import DashboardOverview from './DashboardOverview';
+import DashboardOverviewSimple from './DashboardOverviewSimple';
 import AddDriver from './AddDriver';
 import AddVehicleNew from './AddVehicleNew';
 import DriversList from './DriversList';
@@ -63,7 +64,7 @@ const AdminDashboardNew = () => {
   };
 
   const tabs = [
-    { label: 'Dashboard', icon: <DashboardIcon />, component: <DashboardOverview /> },
+    { label: 'Dashboard', icon: <DashboardIcon />, component: <DashboardOverviewSimple /> },
     { label: 'Add Driver', icon: <PersonAdd />, component: <AddDriver /> },
     { label: 'Add Vehicle', icon: <DirectionsCar />, component: <AddVehicleNew /> },
     { label: 'Drivers', icon: <People />, component: <DriversList /> },

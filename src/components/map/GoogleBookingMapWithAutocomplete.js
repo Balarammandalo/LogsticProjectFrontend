@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Box, Typography, Button, Chip, Paper, Alert, TextField, InputAdornment, CircularProgress } from '@mui/material';
-import { CheckCircle, MyLocation, LocationOn, Route, Close } from '@mui/icons-material';
+import { CheckCircle, MyLocation, LocationOn, Route, Close, Refresh } from '@mui/icons-material';
 
 // India bounds for map restriction
 const INDIA_BOUNDS = {
@@ -55,7 +55,7 @@ const GoogleBookingMapWithAutocomplete = ({
   // Load Google Maps Script
   useEffect(() => {
     // Check if API key is valid
-    if (!apiKey || apiKey === 'YOUR_GOOGLE_MAPS_API_KEY' || apiKey.trim() === '') {
+    if (!apiKey || apiKey === 'YOUR_API_KEY_HERE' || apiKey === 'YOUR_GOOGLE_MAPS_API_KEY' || apiKey.trim() === '') {
       setError('Google Maps API key is not configured. Please add your API key to the .env file.');
       console.error('Google Maps API key is missing. Add REACT_APP_GOOGLE_MAPS_API_KEY to your .env file.');
       return;
@@ -305,6 +305,43 @@ const GoogleBookingMapWithAutocomplete = ({
     }
   }, [selectingMode, isWithinIndia, handleLocationSelect]);
 
+  // Reset map function
+  const handleResetMap = useCallback(() => {
+    // Clear markers
+    if (pickupMarkerRef.current) {
+      pickupMarkerRef.current.setMap(null);
+      pickupMarkerRef.current = null;
+    }
+    if (dropMarkerRef.current) {
+      dropMarkerRef.current.setMap(null);
+      dropMarkerRef.current = null;
+    }
+    
+    // Clear polyline
+    if (polylineRef.current) {
+      polylineRef.current.setMap(null);
+      polylineRef.current = null;
+    }
+    
+    // Reset state
+    setPickupAddress('');
+    setDropAddress('');
+    setDistance(null);
+    setDuration(null);
+    setSelectingMode(null);
+    setError('');
+    
+    // Notify parent components
+    onPickupSelect(null);
+    onDropSelect(null);
+    
+    // Reset map view to India center
+    if (googleMapRef.current) {
+      googleMapRef.current.setCenter(INDIA_CENTER);
+      googleMapRef.current.setZoom(5);
+    }
+  }, [onPickupSelect, onDropSelect]);
+
   // Draw polyline and calculate distance when both markers are set
   useEffect(() => {
     if (!googleMapRef.current || !isMapLoaded || !pickupCoords || !dropCoords) {
@@ -547,6 +584,21 @@ const GoogleBookingMapWithAutocomplete = ({
             color="success"
             sx={{ fontWeight: 600 }}
           />
+        )}
+
+        {(pickupCoords || dropCoords) && (
+          <Button
+            variant="outlined"
+            color="warning"
+            startIcon={<Refresh />}
+            onClick={handleResetMap}
+            sx={{
+              fontWeight: 600,
+              textTransform: 'none',
+            }}
+          >
+            Reset Map
+          </Button>
         )}
 
         {loading && <CircularProgress size={24} />}

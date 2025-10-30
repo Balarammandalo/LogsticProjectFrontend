@@ -14,6 +14,10 @@ import {
   TableHead,
   TableRow,
   Paper,
+  CircularProgress,
+  Alert,
+  IconButton,
+  Fade,
 } from '@mui/material';
 import {
   LocalShipping,
@@ -24,104 +28,173 @@ import {
   CheckCircle,
   Schedule,
   Warning,
+  Refresh,
+  AttachMoney,
 } from '@mui/icons-material';
+import socketService from '../../services/socket';
+import { useAuth } from '../../services/AuthContext';
 
 const DashboardOverview = () => {
-  const [stats, setStats] = useState({
-    totalBookings: 0,
-    activeDeliveries: 0,
-    completedDeliveries: 0,
-    totalVehicles: 0,
-    availableVehicles: 0,
-    totalDrivers: 0,
-    activeDrivers: 0,
-  });
-
-  const [recentBookings, setRecentBookings] = useState([]);
+  const { user } = useAuth();
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [lastUpdated, setLastUpdated] = useState(null);
 
   useEffect(() => {
-    loadStats();
-    loadRecentBookings();
-  }, []);
+    loadDashboardData();
+    
+    // Set up Socket.IO listeners for real-time updates
+    try {
+      if (user) {
+        socketService.connect(user);
+        
+        setTimeout(() => {
+          if (socketService.on) {
+            socketService.emit('join-admin-room');
+            
+            // Listen for events that should trigger dashboard refresh
+            socketService.on('new-booking', () => {
+              console.log('New booking received, refreshing dashboard...');
+              loadDashboardData();
+            });
+            
+            socketService.on('delivery-status-update', () => {
+              console.log('Delivery status updated, refreshing dashboard...');
+              loadDashboardData();
+            });
+            
+            socketService.on('driver-status-update', () => {
+              console.log('Driver status updated, refreshing dashboard...');
+              loadDashboardData();
+            });
+          }
+        }, 500);
+      }
+    } catch (error) {
+      console.error('Socket connection error:', error);
+    }
+    
+    // Auto-refresh every 30 seconds
+    const interval = setInterval(() => {
+      loadDashboardData();
+    }, 30000);
+    
+    return () => {
+      clearInterval(interval);
+      try {
+        socketService.disconnect();
+      } catch (error) {
+        console.error('Socket disconnect error:', error);
+      }
+    };
+  }, [user]);
 
-  const loadStats = () => {
-    // Load from localStorage
-    const bookings = JSON.parse(localStorage.getItem('customerOrders') || '[]');
-    const drivers = JSON.parse(localStorage.getItem('drivers') || '[]');
-    const vehicles = JSON.parse(localStorage.getItem('vehicles') || '[]');
-
-    setStats({
-      totalBookings: bookings.length,
-      activeDeliveries: bookings.filter(b => b.status === 'in-transit' || b.status === 'on-route').length,
-      completedDeliveries: bookings.filter(b => b.status === 'delivered').length,
-      totalVehicles: vehicles.length,
-      availableVehicles: vehicles.filter(v => v.status === 'available').length,
-      totalDrivers: drivers.length,
-      activeDrivers: drivers.filter(d => d.status === 'active' || d.status === 'on-trip').length,
-    });
+  const loadDashboardData = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:5000/api/admin/dashboard', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch dashboard data');
+      }
+      
+      const data = await response.json();
+      console.log('Dashboard data loaded:', data);
+      
+      setStats(data.data);
+      setLastUpdated(new Date());
+    } catch (error) {
+      console.error('Error loading dashboard data:', error);
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const loadRecentBookings = () => {
-    const bookings = JSON.parse(localStorage.getItem('customerOrders') || '[]');
-    setRecentBookings(bookings.slice(-5).reverse());
-  };
+  if (loading && !stats) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (error && !stats) {
+    return (
+      <Alert severity="error" sx={{ m: 2 }}>
+        {error}
+      </Alert>
+    );
+  }
+
+  if (!stats) {
+    return null;
+  }
 
   const statCards = [
     {
       title: 'Total Bookings',
-      value: stats.totalBookings,
+      value: stats.bookings.total,
       icon: <Assignment sx={{ fontSize: 40 }} />,
       color: '#667eea',
       bgColor: 'rgba(102, 126, 234, 0.1)',
     },
     {
       title: 'Active Deliveries',
-      value: stats.activeDeliveries,
+      value: stats.bookings.active,
       icon: <LocalShipping sx={{ fontSize: 40 }} />,
       color: '#f093fb',
       bgColor: 'rgba(240, 147, 251, 0.1)',
     },
     {
       title: 'Completed',
-      value: stats.completedDeliveries,
+      value: stats.bookings.completed,
       icon: <CheckCircle sx={{ fontSize: 40 }} />,
       color: '#4caf50',
       bgColor: 'rgba(76, 175, 80, 0.1)',
     },
     {
-      title: 'Total Vehicles',
-      value: stats.totalVehicles,
-      icon: <DirectionsCar sx={{ fontSize: 40 }} />,
+      title: 'Pending Bookings',
+      value: stats.bookings.pending,
+      icon: <Schedule sx={{ fontSize: 40 }} />,
       color: '#ff9800',
       bgColor: 'rgba(255, 152, 0, 0.1)',
     },
     {
+      title: 'Total Vehicles',
+      value: stats.vehicles.total,
+      icon: <DirectionsCar sx={{ fontSize: 40 }} />,
+      color: '#2196f3',
+      bgColor: 'rgba(33, 150, 243, 0.1)',
+    },
+    {
       title: 'Available Vehicles',
-      value: stats.availableVehicles,
+      value: stats.vehicles.available,
       icon: <DirectionsCar sx={{ fontSize: 40 }} />,
       color: '#4caf50',
       bgColor: 'rgba(76, 175, 80, 0.1)',
     },
     {
       title: 'Total Drivers',
-      value: stats.totalDrivers,
+      value: stats.drivers.total,
       icon: <People sx={{ fontSize: 40 }} />,
-      color: '#2196f3',
-      bgColor: 'rgba(33, 150, 243, 0.1)',
+      color: '#667eea',
+      bgColor: 'rgba(102, 126, 234, 0.1)',
     },
     {
       title: 'Active Drivers',
-      value: stats.activeDrivers,
+      value: stats.drivers.active,
       icon: <People sx={{ fontSize: 40 }} />,
       color: '#4caf50',
       bgColor: 'rgba(76, 175, 80, 0.1)',
-    },
-    {
-      title: 'Pending Bookings',
-      value: stats.totalBookings - stats.activeDeliveries - stats.completedDeliveries,
-      icon: <Schedule sx={{ fontSize: 40 }} />,
-      color: '#ff9800',
-      bgColor: 'rgba(255, 152, 0, 0.1)',
     },
   ];
 
@@ -141,9 +214,21 @@ const DashboardOverview = () => {
 
   return (
     <Box>
-      <Typography variant="h5" sx={{ fontWeight: 700, mb: 3, color: '#667eea' }}>
-        📊 Dashboard Overview
-      </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h5" sx={{ fontWeight: 700, color: '#667eea' }}>
+          📊 Dashboard Overview
+        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          {lastUpdated && (
+            <Typography variant="caption" color="text.secondary">
+              Last updated: {lastUpdated.toLocaleTimeString()}
+            </Typography>
+          )}
+          <IconButton onClick={loadDashboardData} disabled={loading} size="small">
+            <Refresh />
+          </IconButton>
+        </Box>
+      </Box>
 
       {/* Stats Cards */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
@@ -203,12 +288,12 @@ const DashboardOverview = () => {
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                   <Typography variant="body2">Available</Typography>
                   <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                    {stats.availableVehicles} / {stats.totalVehicles}
+                    {stats.vehicles.available} / {stats.vehicles.total}
                   </Typography>
                 </Box>
                 <LinearProgress
                   variant="determinate"
-                  value={stats.totalVehicles > 0 ? (stats.availableVehicles / stats.totalVehicles) * 100 : 0}
+                  value={stats.vehicles.total > 0 ? (stats.vehicles.available / stats.vehicles.total) * 100 : 0}
                   sx={{
                     height: 10,
                     borderRadius: 5,
@@ -221,8 +306,8 @@ const DashboardOverview = () => {
                 />
               </Box>
               <Typography variant="caption" color="text.secondary">
-                {stats.totalVehicles > 0
-                  ? `${Math.round((stats.availableVehicles / stats.totalVehicles) * 100)}% vehicles available`
+                {stats.vehicles.total > 0
+                  ? `${Math.round((stats.vehicles.available / stats.vehicles.total) * 100)}% vehicles available`
                   : 'No vehicles added yet'}
               </Typography>
             </CardContent>
@@ -239,12 +324,12 @@ const DashboardOverview = () => {
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                   <Typography variant="body2">Active</Typography>
                   <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                    {stats.activeDrivers} / {stats.totalDrivers}
+                    {stats.drivers.active} / {stats.drivers.total}
                   </Typography>
                 </Box>
                 <LinearProgress
                   variant="determinate"
-                  value={stats.totalDrivers > 0 ? (stats.activeDrivers / stats.totalDrivers) * 100 : 0}
+                  value={stats.drivers.total > 0 ? (stats.drivers.active / stats.drivers.total) * 100 : 0}
                   sx={{
                     height: 10,
                     borderRadius: 5,
@@ -257,8 +342,8 @@ const DashboardOverview = () => {
                 />
               </Box>
               <Typography variant="caption" color="text.secondary">
-                {stats.totalDrivers > 0
-                  ? `${Math.round((stats.activeDrivers / stats.totalDrivers) * 100)}% drivers active`
+                {stats.drivers.total > 0
+                  ? `${Math.round((stats.drivers.active / stats.drivers.total) * 100)}% drivers active`
                   : 'No drivers added yet'}
               </Typography>
             </CardContent>
@@ -272,7 +357,7 @@ const DashboardOverview = () => {
           <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
             📦 Recent Bookings
           </Typography>
-          {recentBookings.length > 0 ? (
+          {stats.recentBookings && stats.recentBookings.length > 0 ? (
             <TableContainer>
               <Table>
                 <TableHead>
@@ -286,7 +371,7 @@ const DashboardOverview = () => {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {recentBookings.map((booking) => (
+                  {stats.recentBookings.map((booking) => (
                     <TableRow key={booking._id} hover>
                       <TableCell>#{booking._id.slice(-6)}</TableCell>
                       <TableCell>{booking.customerName || booking.customer?.name || 'N/A'}</TableCell>
@@ -306,7 +391,7 @@ const DashboardOverview = () => {
                           color={getStatusColor(booking.status)}
                         />
                       </TableCell>
-                      <TableCell>₹{booking.payment}</TableCell>
+                      <TableCell>₹{booking.payment?.amount || booking.payment || 0}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
